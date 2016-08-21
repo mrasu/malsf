@@ -4,15 +4,23 @@ import (
 	"time"
 	"github.com/mrasu/malsf/discover"
 	"fmt"
+	"github.com/mrasu/malsf/structs"
 )
 
 type Cron struct {
 	interval int
+	cronAct structs.CronAct
+	*sender
 }
 
-func NewTick() *Cron {
+func NewCron(cronAct structs.CronAct) *Cron {
 	return &Cron{
+		sender: &sender{
+			Name: cronAct.Name(),
+			ServiceName: cronAct.Service(),
+		},
 		interval: 1,
+		cronAct: cronAct,
 	}
 }
 
@@ -22,20 +30,30 @@ func (c *Cron) Start() error {
 	for {
 		select {
 		case <-t.C:
-			n := discover.NewNodeDiscoverer()
-			members, err := n.GetMembersByTag("client")
+			message, err := c.cronAct.CallCron()
 			if err != nil {
 				return err
+			} else if message == nil {
+				continue
 			}
-			for _, member := range members {
-				fmt.Println(member.Addr())
-				rch, ech := member.Send("hello world", "Memory")
 
-				select {
-				case <-rch:
-					//do nothing
-				case err := <- ech:
+			n := discover.NewNodeDiscoverer()
+			for _, service := range message.ToServices {
+				members, err := n.GetMembersByTag(service)
+				if err != nil {
 					return err
+				}
+
+				for _, member := range members {
+					fmt.Println(member.Address())
+					rch, ech := c.send(member, message)
+
+					select {
+					case <-rch:
+						//do nothing
+					case err := <- ech:
+						return err
+					}
 				}
 			}
 		}

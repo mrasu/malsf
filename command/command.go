@@ -1,50 +1,35 @@
 package client
 
-import "github.com/mrasu/malsf/server"
+import (
+	"github.com/mrasu/malsf/server"
+	"github.com/mrasu/malsf/structs"
+)
 
 type Command struct {
-	t ClientType
 	port int
 }
 
-func NewCommand(t ClientType, port int) *Command {
+func NewCommand(port int) *Command {
 	return &Command{
-		t: t,
 		port: port,
 	}
 }
 
-type ClientType int
-
-const (
-	Manager ClientType = iota
-	Client
-)
-
-func (c *Command) Start() {
-	switch c.t {
-	case Manager:
-		c.startAsManager()
-	case Client:
-		c.startAsClient()
-	}
+func (c *Command) StartManager(s structs.ServerAct) {
+	c.startServer(s)
 }
 
-func (c *Command) startAsManager() {
-	c.startServer()
-}
-
-func (c *Command) startAsClient() {
-	c.startServer()
+func (c *Command) StartCron(cronAct structs.CronAct) {
+	c.startServer(cronAct)
 
 	go func() {
-		c := server.NewTick()
+		c := server.NewCron(cronAct)
 		panic(c.Start())
 	}()
 }
 
-func (c *Command) startServer() {
+func (c *Command) startServer(s structs.ServerAct) {
 	go func() {
-		server.StartServer(c.port)
+		server.StartServer(c.port, s)
 	}()
 }
