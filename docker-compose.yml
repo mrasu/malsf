@@ -1,0 +1,18 @@
+version: "2"
+services:
+  manager:
+    build: .
+    ports:
+      - "8500:8500"
+    volumes:
+      - ./:/mine/gopath/src/github.com/mrasu/malsf
+    working_dir: /mine/gopath/src/github.com/mrasu/malsf/example
+    command: bash -c "consul agent -config-file consul_manager.conf -dev"
+  cron:
+    build: .
+    volumes:
+      - ./:/mine/gopath/src/github.com/mrasu/malsf
+    working_dir: /mine/gopath/src/github.com/mrasu/malsf/example
+    command: bash -c "go get && consul agent -config-file consul_cron.conf -dev -join=manager"
+    depends_on:
+      - manager

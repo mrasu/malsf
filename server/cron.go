@@ -2,60 +2,40 @@ package server
 
 import (
 	"time"
-	"github.com/mrasu/malsf/discover"
-	"fmt"
 	"github.com/mrasu/malsf/structs"
 )
 
 type Cron struct {
-	interval int
-	cronAct structs.CronAct
-	*sender
+	interval time.Duration
+	cronFn   func()(*structs.Message, error)
 }
 
-func NewCron(cronAct structs.CronAct) *Cron {
+func NewCron(interval time.Duration, cronFn func()(*structs.Message, error)) *Cron {
 	return &Cron{
-		sender: &sender{
-			Name: cronAct.Name(),
-			ServiceName: cronAct.Service(),
-		},
-		interval: 1,
-		cronAct: cronAct,
+		interval: interval,
+		cronFn: cronFn,
 	}
 }
 
-func (c *Cron) Start() error {
-	t := time.NewTicker(1 * time.Second)
+func (c *Cron) Start(mch chan(*structs.Message)) (chan(error)) {
+	ech := make(chan(error))
 
-	for {
-		select {
-		case <-t.C:
-			message, err := c.cronAct.CallCron()
-			if err != nil {
-				return err
-			} else if message == nil {
-				continue
-			}
+	go func() {
+		t := time.NewTicker(c.interval)
 
-			n := discover.NewNodeDiscoverer()
-			for _, service := range message.ToServices {
-				members, err := n.GetMembersByTag(service)
+		for {
+			select {
+			case <-t.C:
+				message, err := c.cronFn()
 				if err != nil {
-					return err
+					ech <- err
+				} else if message == nil {
+					continue
 				}
-
-				for _, member := range members {
-					fmt.Println(member.Address())
-					rch, ech := c.send(member, message)
-
-					select {
-					case <-rch:
-						//do nothing
-					case err := <- ech:
-						return err
-					}
-				}
+				mch <- message
 			}
 		}
-	}
+	}()
+
+	return ech
 }

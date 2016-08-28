@@ -22,6 +22,7 @@ func (s *sender) send(m *members.Member, message *structs.Message) (chan *struct
 	reactChan := make(chan *structs.Reaction)
 	errChan := make(chan error)
 	go func() {
+		fmt.Println(m.Address())
 		conn, err := grpc.Dial(m.Address(), grpc.WithInsecure())
 		if err != nil {
 			errChan <- err
@@ -49,6 +50,18 @@ func (s *sender) send(m *members.Member, message *structs.Message) (chan *struct
 
 	return reactChan, errChan
 }
+
+func (s *sender) sendAsync(m *members.Member, message *structs.Message) (*structs.Reaction, error) {
+	rch, ech := s.send(m, message)
+
+	select {
+	case r := <-rch:
+		return r, nil
+	case err := <- ech:
+		return nil, err
+	}
+}
+
 
 func (s *sender) incrementId() int32 {
 	s.mu.Lock()
