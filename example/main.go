@@ -16,13 +16,13 @@ func main() {
 	fmt.Printf("arg: %s\n", arg)
 
 	if arg == "m" {
-		c := client.NewCommand(11110)
+		c := client.NewCommand(10000)
 		c.StartManager("server01", "server", ReceiveToServer)
 		ccc := make(chan(int))
 		<- ccc
 	}
 	if arg == "c" {
-		c2 := client.NewCommand(11111)
+		c2 := client.NewCommand(10000)
 		c2.StartCron("consul01", "client", 1 * time.Second, ReceiveTime)
 		time.Sleep(4 * time.Second)
 	}

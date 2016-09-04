@@ -29,11 +29,15 @@ func (n *NodeDiscoverer) GetMember(name string, service string) (*members.Member
 	}
 
 	if service, ok := node.Services[service]; ok {
-		return members.NewMember(
+		m, err := members.NewMember(
 			node.Node.Node,
 			node.Node.Address,
 			service.Port,
-		), nil
+		)
+		if err != nil {
+			return nil, err
+		}
+		return m, nil
 	} else {
 		return nil, errors.New("service not found")
 	}
@@ -48,11 +52,16 @@ func (n *NodeDiscoverer) GetMembersByTag(service string) ([]*members.Member, err
 
 	result := []*members.Member{}
 	for _, member := range service_members {
-		result = append(result, members.NewMember(
+		m, err := members.NewMember(
 			member.Node,
 			member.Address,
 			member.ServicePort,
-		))
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		result = append(result, m)
 	}
 
 	if err != nil {

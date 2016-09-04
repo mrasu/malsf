@@ -8,6 +8,11 @@ import (
 	"github.com/mrasu/malsf/discover"
 	"github.com/mrasu/malsf/structs"
 	"github.com/mrasu/malsf/util"
+	"github.com/mrasu/malsf/members"
+)
+
+const(
+	MASTER_ADDR = "172.22.0.2:10000"
 )
 
 type Server struct {
@@ -33,8 +38,46 @@ func StartServer(port int, serverAct structs.ReceiverAct, mch chan(*structs.Mess
 	go func() {
 		s.ListenMessage(mch)
 	}()
+
+	go func() {
+		addr, err := s.getAddress()
+
+		if err != nil {
+			panic(err)
+		}
+		sm, err:= members.NewSwimManager(addr + ":10000")
+		if err != nil {
+			panic(err)
+		}
+
+		if addr + ":10000" == MASTER_ADDR {
+			err = sm.Start(s.grpcServer, "")
+		} else {
+			err = sm.Start(s.grpcServer, MASTER_ADDR)
+		}
+		if err != nil {
+			fmt.Println(err)
+			panic(err)
+		}
+	}()
 	structs.RegisterActionServiceServer(s.grpcServer, s)
 	s.grpcServer.Serve(lis)
+}
+
+func (s *Server) getAddress() (string, error) {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "", err
+	}
+
+	for _, addr := range addrs {
+		if ipnet, ok := addr.(*net.IPNet); ok && ipnet.IP.IsLoopback() == false {
+			if ipnet.IP.To4() != nil {
+				return ipnet.IP.String(), nil
+			}
+		}
+	}
+	return "", err
 }
 
 func(s *Server) Notify(ctx context.Context, action *structs.Action) (*structs.Reaction, error) {

@@ -1,0 +1,36 @@
+syntax="proto3";
+
+package members;
+
+service MemberService {
+    rpc Join(NodeInfo) returns (AllNodeInfo) {}
+    rpc NotifyNode(AllNodeInfo) returns (AllNodeInfo) {}
+}
+
+message NodeInfo {
+    string address = 1;
+    int32 incarnationNumber = 2;
+}
+
+message AllNodeInfo {
+    repeated NodeInfo nodes = 1;
+}
+
+service SwimService {
+    rpc Ping(NodeInfo) returns (AckPing) {}
+    rpc RequirePing(NodeInfo) returns (Result) {}
+
+    rpc Suspect(NodeInfo) returns (Empty) {}
+    rpc Alive(NodeInfo) returns (Empty) {}
+    rpc Confirm(NodeInfo) returns (Empty) {}
+}
+
+message AckPing {
+    bool isJoined = 1;
+}
+
+message Result {
+    bool success = 1;
+}
+
+message Empty {}
