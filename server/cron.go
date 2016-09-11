@@ -1,24 +1,24 @@
 package server
 
 import (
-	"time"
 	"github.com/mrasu/malsf/structs"
+	"time"
 )
 
 type Cron struct {
 	interval time.Duration
-	cronFn   func()(*structs.Message, error)
+	cronFn   func() (*structs.Message, error)
 }
 
-func NewCron(interval time.Duration, cronFn func()(*structs.Message, error)) *Cron {
+func NewCron(interval time.Duration, cronFn func() (*structs.Message, error)) *Cron {
 	return &Cron{
 		interval: interval,
-		cronFn: cronFn,
+		cronFn:   cronFn,
 	}
 }
 
-func (c *Cron) Start(mch chan(*structs.Message)) (chan(error)) {
-	ech := make(chan(error))
+func (c *Cron) Start(mch chan (*structs.Message)) chan (error) {
+	ech := make(chan (error))
 
 	go func() {
 		t := time.NewTicker(c.interval)

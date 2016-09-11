@@ -1,8 +1,8 @@
 package members
 
 import (
-	"google.golang.org/grpc"
 	"fmt"
+	"google.golang.org/grpc"
 )
 
 type Status int
@@ -13,10 +13,10 @@ const (
 )
 
 type Member struct {
-	Name string
-	Addr grpc.Address
+	Name              string
+	Addr              grpc.Address
 	IncarnationNumber int
-	Status Status
+	Status            Status
 }
 
 func NewMember(name string, addr string, in int) (*Member, error) {
@@ -27,7 +27,7 @@ func NewMember(name string, addr string, in int) (*Member, error) {
 			Addr: addr,
 		},
 		IncarnationNumber: in,
-		Status: ALIVE,
+		Status:            ALIVE,
 	}, nil
 }
 

@@ -1,14 +1,14 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/mrasu/malsf/command"
-	"time"
-	"os/exec"
-	"strings"
 	"github.com/mrasu/malsf/structs"
 	"os"
-	"encoding/json"
+	"os/exec"
+	"strings"
+	"time"
 )
 
 func main() {
@@ -18,12 +18,12 @@ func main() {
 	if arg == "m" {
 		c := client.NewCommand(10000)
 		c.StartManager("server01", "server", ReceiveToServer)
-		ccc := make(chan(int))
-		<- ccc
+		ccc := make(chan (int))
+		<-ccc
 	}
 	if arg == "c" {
 		c2 := client.NewCommand(10000)
-		c2.StartCron("consul01", "client", 1 * time.Second, ReceiveTime)
+		c2.StartCron("consul01", "client", 1*time.Second, ReceiveTime)
 		time.Sleep(4 * time.Second)
 	}
 }
@@ -37,7 +37,7 @@ func ReceiveToServer(action *structs.Action) (*structs.Message, error) {
 
 			return (&structs.Message{
 				MessageType: "Kill Process",
-				Message: ips[0],
+				Message:     ips[0],
 			}), nil
 		}
 	}

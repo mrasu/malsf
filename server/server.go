@@ -1,27 +1,27 @@
 package server
 
 import (
-	"net"
-	"google.golang.org/grpc"
-	"golang.org/x/net/context"
 	"fmt"
 	"github.com/mrasu/malsf/discover"
+	"github.com/mrasu/malsf/members"
 	"github.com/mrasu/malsf/structs"
 	"github.com/mrasu/malsf/util"
-	"github.com/mrasu/malsf/members"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"net"
 )
 
-const(
+const (
 	MASTER_ADDR = "172.22.0.2:10000"
 )
 
 type Server struct {
 	grpcServer *grpc.Server
-	serverAct structs.ReceiverAct
+	serverAct  structs.ReceiverAct
 	*sender
 }
 
-func StartServer(port int, serverAct structs.ReceiverAct, mch chan(*structs.Message)) {
+func StartServer(port int, serverAct structs.ReceiverAct, mch chan (*structs.Message)) {
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		panic(err)
@@ -29,11 +29,11 @@ func StartServer(port int, serverAct structs.ReceiverAct, mch chan(*structs.Mess
 
 	s := &Server{
 		sender: &sender{
-			Name: serverAct.Name(),
+			Name:        serverAct.Name(),
 			ServiceName: serverAct.Service(),
 		},
 		grpcServer: grpc.NewServer(),
-		serverAct: serverAct,
+		serverAct:  serverAct,
 	}
 	go func() {
 		s.ListenMessage(mch)
@@ -45,12 +45,12 @@ func StartServer(port int, serverAct structs.ReceiverAct, mch chan(*structs.Mess
 		if err != nil {
 			panic(err)
 		}
-		sm, err:= members.NewSwimManager(addr + ":10000")
+		sm, err := members.NewSwimManager(addr + ":10000")
 		if err != nil {
 			panic(err)
 		}
 
-		if addr + ":10000" == MASTER_ADDR {
+		if addr+":10000" == MASTER_ADDR {
 			err = sm.Start(s.grpcServer, "")
 		} else {
 			err = sm.Start(s.grpcServer, MASTER_ADDR)
@@ -80,7 +80,7 @@ func (s *Server) getAddress() (string, error) {
 	return "", err
 }
 
-func(s *Server) Notify(ctx context.Context, action *structs.Action) (*structs.Reaction, error) {
+func (s *Server) Notify(ctx context.Context, action *structs.Action) (*structs.Reaction, error) {
 	util.LogActionReceived(s.Name, action.NodeName, action.Id, fmt.Sprintf("Get (%s): %s", action.Type, action.Message))
 
 	m, err := s.serverAct.Receive(ctx, action)
@@ -100,9 +100,9 @@ func(s *Server) Notify(ctx context.Context, action *structs.Action) (*structs.Re
 	}
 
 	r := &structs.Reaction{
-		Id: s.incrementId(),
-		FromId: action.Id,
-		Code: 0,
+		Id:      s.incrementId(),
+		FromId:  action.Id,
+		Code:    0,
 		Message: "Success",
 	}
 
@@ -110,9 +110,9 @@ func(s *Server) Notify(ctx context.Context, action *structs.Action) (*structs.Re
 	return r, nil
 }
 
-func(s *Server) ListenMessage(mch chan(*structs.Message)) error {
+func (s *Server) ListenMessage(mch chan (*structs.Message)) error {
 	for {
-		m := <- mch
+		m := <-mch
 		n := discover.NewNodeDiscoverer()
 		for _, service := range m.ToServices {
 			members, err := n.GetMembersByTag(service)

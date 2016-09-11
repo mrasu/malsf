@@ -2,27 +2,27 @@ package members
 
 /**
   Not use IncarnationNumber to detect failure yet
- */
+*/
 
 import (
-	"google.golang.org/grpc"
-	"golang.org/x/net/context"
-	"time"
-	"math/rand"
-	"sync"
 	"errors"
 	"fmt"
 	"github.com/mrasu/malsf/util"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"math/rand"
+	"sync"
+	"time"
 )
 
 const (
-	PING_TIMEOUT = 1
+	PING_TIMEOUT  = 1
 	PING_INTERVAL = 1
 )
 
 type SwimManager struct {
-	myInfo *Member
-	members map[string]*Member
+	myInfo      *Member
+	members     map[string]*Member
 	swimTargets []*Member
 
 	mu sync.Mutex
@@ -35,7 +35,7 @@ func NewSwimManager(addr string) (*SwimManager, error) {
 	}
 
 	return &SwimManager{
-		myInfo: me,
+		myInfo:  me,
 		members: map[string]*Member{},
 	}, nil
 }
@@ -64,7 +64,7 @@ func (s *SwimManager) startSwim() {
 
 		for {
 			select {
-			case <- t.C:
+			case <-t.C:
 				go s.pingRandomMember()
 			}
 		}
@@ -80,7 +80,7 @@ func (s *SwimManager) joinMember(m *Member) error {
 	c := NewMemberServiceClient(conn)
 
 	myNi := &NodeInfo{
-		Address: s.myInfo.Addr.Addr,
+		Address:           s.myInfo.Addr.Addr,
 		IncarnationNumber: 0,
 	}
 	util.LogSwimMethod(true, "JOIN", myNi.String())
@@ -97,7 +97,7 @@ func (s *SwimManager) buildMember(ni *NodeInfo) (*Member, error) {
 	return NewMember(ni.Address, ni.Address, int(ni.IncarnationNumber))
 }
 
-func (s *SwimManager) addMembers(nis []*NodeInfo) []*Member{
+func (s *SwimManager) addMembers(nis []*NodeInfo) []*Member {
 	newMembers := []*Member{}
 	for _, ni := range nis {
 		if ni.Address == s.myInfo.Address() {
@@ -128,7 +128,7 @@ func (s *SwimManager) addMember(m *Member) {
 	s.members[m.Name] = m
 }
 
-func (s *SwimManager) getMember(ni *NodeInfo) *Member{
+func (s *SwimManager) getMember(ni *NodeInfo) *Member {
 	return s.members[ni.Address]
 }
 
@@ -140,7 +140,7 @@ func (s *SwimManager) deleteMember(m *Member) {
 	delete(s.members, m.Name)
 }
 
-func(s *SwimManager) Join(ctx context.Context, ni *NodeInfo) (*AllNodeInfo, error) {
+func (s *SwimManager) Join(ctx context.Context, ni *NodeInfo) (*AllNodeInfo, error) {
 	util.LogSwimMethod(false, "JOIN", ni.String())
 	if _, ok := s.members[ni.Address]; ok == false {
 		go func() {
@@ -176,7 +176,7 @@ func (s *SwimManager) disseminate(f func(*Member)) {
 	}
 }
 
-func (s *SwimManager) createAllNodeInfo() *AllNodeInfo{
+func (s *SwimManager) createAllNodeInfo() *AllNodeInfo {
 	ani := &AllNodeInfo{
 		Nodes: []*NodeInfo{},
 	}
@@ -187,14 +187,14 @@ func (s *SwimManager) createAllNodeInfo() *AllNodeInfo{
 	return ani
 }
 
-func(s *SwimManager) NotifyNode(ctx context.Context, ani *AllNodeInfo) (*AllNodeInfo, error) {
+func (s *SwimManager) NotifyNode(ctx context.Context, ani *AllNodeInfo) (*AllNodeInfo, error) {
 	util.LogSwimMethod(false, "NotifyNode", ani.String())
 	s.addMembers(ani.Nodes)
 
 	return s.createAllNodeInfo(), nil
 }
 
-func(s *SwimManager) pingRandomMember() error {
+func (s *SwimManager) pingRandomMember() error {
 	m := s.getRandomMember()
 	if m == nil {
 		return nil
@@ -202,7 +202,7 @@ func(s *SwimManager) pingRandomMember() error {
 	return s.execPing(m)
 }
 
-func(s *SwimManager) execPing(m *Member) error {
+func (s *SwimManager) execPing(m *Member) error {
 	fmt.Printf("Ping! %s\n", m)
 	conn, err := m.Connect()
 	defer conn.Close()
@@ -231,13 +231,13 @@ func(s *SwimManager) execPing(m *Member) error {
 	}()
 
 	select {
-	case <- timeout:
+	case <-timeout:
 		go s.execRequirePing(m)
 		return nil
-	case err := <- errCh:
+	case err := <-errCh:
 		go s.execRequirePing(m)
 		return err
-	case ack := <- ackCh:
+	case ack := <-ackCh:
 		if ack.IsJoined == false {
 			go func() {
 				err := s.joinMember(m)
@@ -253,14 +253,14 @@ func(s *SwimManager) execPing(m *Member) error {
 	}
 }
 
-func (s *SwimManager) buildNodeInfo(m *Member) *NodeInfo{
+func (s *SwimManager) buildNodeInfo(m *Member) *NodeInfo {
 	return &NodeInfo{
-		Address: m.Address(),
+		Address:           m.Address(),
 		IncarnationNumber: int32(m.IncarnationNumber),
 	}
 }
 
-func(s *SwimManager) getRandomMember() *Member {
+func (s *SwimManager) getRandomMember() *Member {
 	if len(s.members) == 0 {
 		return nil
 	}
@@ -275,7 +275,7 @@ func(s *SwimManager) getRandomMember() *Member {
 	return nil
 }
 
-func(s *SwimManager) Ping(ctx context.Context, ni *NodeInfo) (*AckPing, error) {
+func (s *SwimManager) Ping(ctx context.Context, ni *NodeInfo) (*AckPing, error) {
 	util.LogSwimMethod(false, "Ping", ni.String())
 	if _, ok := s.members[ni.Address]; ok {
 		fmt.Printf("Catch Ping %s: true\n", ni)
@@ -321,7 +321,7 @@ func (s *SwimManager) execRequirePing(m *Member) {
 		wg.Add(1)
 		go func() {
 			aliveRes, err := s.execRequirePingToMember(o, m)
-			if err == nil && aliveRes{
+			if err == nil && aliveRes {
 				alive = true
 			}
 			wg.Done()
@@ -366,11 +366,11 @@ func (s *SwimManager) execRequirePingToMember(m *Member, noResponseMember *Membe
 	}()
 
 	select {
-	case <- timeout:
+	case <-timeout:
 		return false, errors.New("Timeout")
-	case err := <- errCh:
+	case err := <-errCh:
 		return false, err
-	case result := <- ackCh:
+	case result := <-ackCh:
 		return result.Success, nil
 	}
 }
@@ -389,7 +389,7 @@ func (s *SwimManager) execSuspect(m *Member) {
 	})
 }
 
-func(s *SwimManager) RequirePing(ctx context.Context, ni *NodeInfo) (*Result, error) {
+func (s *SwimManager) RequirePing(ctx context.Context, ni *NodeInfo) (*Result, error) {
 	util.LogSwimMethod(false, "RequirePing", ni.String())
 	m, err := s.buildMember(ni)
 	if err != nil {
@@ -421,16 +421,16 @@ func(s *SwimManager) RequirePing(ctx context.Context, ni *NodeInfo) (*Result, er
 	}()
 
 	select {
-	case <- timeout:
+	case <-timeout:
 		return &Result{Success: false}, nil
-	case err := <- errCh:
+	case err := <-errCh:
 		return nil, err
-	case <- ackCh:
+	case <-ackCh:
 		return &Result{Success: true}, nil
 	}
 }
 
-func(s *SwimManager) Suspect(ctx context.Context, ni *NodeInfo) (*Empty, error) {
+func (s *SwimManager) Suspect(ctx context.Context, ni *NodeInfo) (*Empty, error) {
 	util.LogSwimMethod(false, "Suspect", ni.String())
 	if m := s.getMember(ni); m != nil {
 		m.Status = SUSPECT
@@ -438,7 +438,7 @@ func(s *SwimManager) Suspect(ctx context.Context, ni *NodeInfo) (*Empty, error) 
 	return &Empty{}, nil
 }
 
-func(s *SwimManager) Alive(ctx context.Context, ni *NodeInfo) (*Empty, error) {
+func (s *SwimManager) Alive(ctx context.Context, ni *NodeInfo) (*Empty, error) {
 	util.LogSwimMethod(false, "Alive", ni.String())
 	if m := s.getMember(ni); m != nil {
 		m.Status = ALIVE
@@ -461,7 +461,7 @@ func (s *SwimManager) execAlive(m *Member) {
 	})
 }
 
-func(s *SwimManager) Confirm(ctx context.Context, ni *NodeInfo) (*Empty, error) {
+func (s *SwimManager) Confirm(ctx context.Context, ni *NodeInfo) (*Empty, error) {
 	util.LogSwimMethod(false, "Confirm", ni.String())
 	if m := s.getMember(ni); m != nil {
 		s.deleteMember(m)

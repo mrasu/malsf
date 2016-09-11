@@ -1,19 +1,19 @@
 package server
 
 import (
-	"golang.org/x/net/context"
 	"github.com/mrasu/malsf/structs"
 	"github.com/mrasu/malsf/util"
+	"golang.org/x/net/context"
 )
 
 type EmptyReceiver struct {
-	name string
+	name    string
 	service string
 }
 
 func NewEmptyReceiver(name string, service string) *EmptyReceiver {
 	return &EmptyReceiver{
-		name: name,
+		name:    name,
 		service: service,
 	}
 }
@@ -27,6 +27,6 @@ func (e *EmptyReceiver) Service() string {
 }
 
 func (e *EmptyReceiver) Receive(ctx context.Context, action *structs.Action) (*structs.Message, error) {
-	util.LogAction(e.Name() + "<EmptyReceiver>", action.Id, action.Message)
+	util.LogAction(e.Name()+"<EmptyReceiver>", action.Id, action.Message)
 	return nil, nil
 }

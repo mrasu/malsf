@@ -1,16 +1,16 @@
 package discover
 
 import (
+	"errors"
 	"github.com/hashicorp/consul/api"
 	"github.com/mrasu/malsf/members"
-	"errors"
 )
 
 type NodeDiscoverer struct {
 	client *api.Client
 }
 
-func NewNodeDiscoverer() *NodeDiscoverer{
+func NewNodeDiscoverer() *NodeDiscoverer {
 	config := api.DefaultConfig()
 	client, err := api.NewClient(config)
 	if err != nil {

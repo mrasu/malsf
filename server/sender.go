@@ -1,21 +1,21 @@
 package server
 
 import (
-	"github.com/mrasu/malsf/members"
 	"fmt"
+	"github.com/mrasu/malsf/members"
 	"github.com/mrasu/malsf/structs"
-	"google.golang.org/grpc"
-	"golang.org/x/net/context"
-	"sync"
 	"github.com/mrasu/malsf/util"
+	"golang.org/x/net/context"
+	"google.golang.org/grpc"
+	"sync"
 )
 
 type sender struct {
-	Name string
+	Name        string
 	ServiceName string
 
 	lastId int32
-	mu sync.Mutex
+	mu     sync.Mutex
 }
 
 func (s *sender) send(m *members.Member, message *structs.Message) (chan *structs.Reaction, chan error) {
@@ -33,10 +33,10 @@ func (s *sender) send(m *members.Member, message *structs.Message) (chan *struct
 
 		act := &structs.Action{
 			NodeName: s.Name,
-			Service: s.ServiceName,
-			Id: s.incrementId(),
-			Message: message.Message,
-			Type: message.MessageType,
+			Service:  s.ServiceName,
+			Id:       s.incrementId(),
+			Message:  message.Message,
+			Type:     message.MessageType,
 		}
 		util.LogAction(s.Name, act.Id, fmt.Sprintf("Send (%s): %s", act.Type, act.Message))
 		r, err := c.Notify(context.Background(), act)
@@ -57,11 +57,10 @@ func (s *sender) sendAsync(m *members.Member, message *structs.Message) (*struct
 	select {
 	case r := <-rch:
 		return r, nil
-	case err := <- ech:
+	case err := <-ech:
 		return nil, err
 	}
 }
-
 
 func (s *sender) incrementId() int32 {
 	s.mu.Lock()

@@ -6,15 +6,15 @@ import (
 )
 
 type Receiver struct {
-	name string
-	service string
+	name      string
+	service   string
 	receiveFn func(action *structs.Action) (*structs.Message, error)
 }
 
 func NewReceiver(name string, service string, receiveFn func(action *structs.Action) (*structs.Message, error)) *Receiver {
 	return &Receiver{
-		name: name,
-		service: service,
+		name:      name,
+		service:   service,
 		receiveFn: receiveFn,
 	}
 }
