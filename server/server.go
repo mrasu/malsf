@@ -45,10 +45,7 @@ func StartServer(port int, serverAct structs.ReceiverAct, mch chan (*structs.Mes
 		if err != nil {
 			panic(err)
 		}
-		sm, err := members.NewSwimManager(addr + ":10000")
-		if err != nil {
-			panic(err)
-		}
+		sm := members.NewSwimManager(addr + ":10000")
 
 		if addr+":10000" == MASTER_ADDR {
 			err = sm.Start(s.grpcServer, "")
@@ -115,12 +112,12 @@ func (s *Server) ListenMessage(mch chan (*structs.Message)) error {
 		m := <-mch
 		n := discover.NewNodeDiscoverer()
 		for _, service := range m.ToServices {
-			members, err := n.GetMembersByTag(service)
+			ms, err := n.GetMembersByTag(service)
 			if err != nil {
 				return err
 			}
 
-			for _, member := range members {
+			for _, member := range ms {
 				if _, err := s.sendAsync(member, m); err != nil {
 					return err
 				}

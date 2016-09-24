@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/mrasu/malsf/command"
 	"github.com/mrasu/malsf/structs"
+	"github.com/mrasu/malsf/util"
 	"os"
 	"os/exec"
 	"strings"
@@ -14,6 +15,7 @@ import (
 func main() {
 	arg := os.Args[1]
 	fmt.Printf("arg: %s\n", arg)
+	util.SetDebug(true)
 
 	if arg == "m" {
 		c := client.NewCommand(10000)

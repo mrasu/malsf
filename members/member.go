@@ -19,8 +19,7 @@ type Member struct {
 	Status            Status
 }
 
-func NewMember(name string, addr string, in int) (*Member, error) {
-	fmt.Printf("||||%s\n", addr)
+func NewMember(name string, addr string, in int) *Member {
 	return &Member{
 		Name: name,
 		Addr: grpc.Address{
@@ -28,7 +27,7 @@ func NewMember(name string, addr string, in int) (*Member, error) {
 		},
 		IncarnationNumber: in,
 		Status:            ALIVE,
-	}, nil
+	}
 }
 
 func (m *Member) Address() string {
@@ -40,5 +39,5 @@ func (m *Member) Connect() (*grpc.ClientConn, error) {
 }
 
 func (m *Member) String() string {
-	return fmt.Sprintf("Name(%s), Addr(%s), IncarnationNumber(%d), Status(%s)", m.Name, m.Addr, m.IncarnationNumber, m.Status)
+	return fmt.Sprintf("Name(%s), Addr(%s), IncarnationNumber(%d), Status(%d)", m.Name, m.Addr.Addr, m.IncarnationNumber, m.Status)
 }

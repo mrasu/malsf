@@ -5,8 +5,6 @@ package members
 */
 
 import (
-	"errors"
-	"fmt"
 	"github.com/mrasu/malsf/util"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
@@ -25,19 +23,18 @@ type SwimManager struct {
 	members     map[string]*Member
 	swimTargets []*Member
 
-	mu sync.Mutex
+	mu           sync.Mutex
+	pingInterval time.Duration
 }
 
-func NewSwimManager(addr string) (*SwimManager, error) {
-	me, err := NewMember(addr, addr, 0)
-	if err != nil {
-		return nil, err
-	}
+func NewSwimManager(addr string) *SwimManager {
+	me := NewMember(addr, addr, 0)
 
 	return &SwimManager{
-		myInfo:  me,
-		members: map[string]*Member{},
-	}, nil
+		myInfo:       me,
+		members:      map[string]*Member{},
+		pingInterval: PING_TIMEOUT * time.Second,
+	}
 }
 
 func (s *SwimManager) Start(server *grpc.Server, firstAddress string) error {
@@ -45,11 +42,8 @@ func (s *SwimManager) Start(server *grpc.Server, firstAddress string) error {
 	RegisterSwimServiceServer(server, s)
 
 	if firstAddress != "" {
-		m, err := NewMember(firstAddress, firstAddress, 0)
-		if err != nil {
-			return nil
-		}
-		err = s.joinMember(m)
+		m := NewMember(firstAddress, firstAddress, 0)
+		err := s.joinMember(m)
 		if err != nil {
 			return err
 		}
@@ -84,7 +78,9 @@ func (s *SwimManager) joinMember(m *Member) error {
 		IncarnationNumber: 0,
 	}
 	util.LogSwimMethod(true, "JOIN", myNi.String())
-	ani, err := c.Join(context.Background(), myNi)
+	ctx, cancel := context.WithTimeout(context.Background(), s.pingInterval)
+	defer cancel()
+	ani, err := c.Join(ctx, myNi)
 	if err != nil {
 		return err
 	}
@@ -93,7 +89,7 @@ func (s *SwimManager) joinMember(m *Member) error {
 	return nil
 }
 
-func (s *SwimManager) buildMember(ni *NodeInfo) (*Member, error) {
+func (s *SwimManager) buildMember(ni *NodeInfo) *Member {
 	return NewMember(ni.Address, ni.Address, int(ni.IncarnationNumber))
 }
 
@@ -104,17 +100,14 @@ func (s *SwimManager) addMembers(nis []*NodeInfo) []*Member {
 			continue
 		}
 
-		if m, ok := s.members[ni.Address]; ok == false {
+		if m, ok := s.members[ni.Address]; ok {
 			if int32(m.IncarnationNumber) < ni.IncarnationNumber {
 				m.IncarnationNumber = int(ni.IncarnationNumber)
 			}
 			continue
 		}
 
-		m, err := s.buildMember(ni)
-		if err != nil {
-			continue
-		}
+		m := s.buildMember(ni)
 		s.addMember(m)
 		newMembers = append(newMembers, m)
 	}
@@ -136,34 +129,28 @@ func (s *SwimManager) deleteMember(m *Member) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	fmt.Println("deleteMember")
 	delete(s.members, m.Name)
 }
 
 func (s *SwimManager) Join(ctx context.Context, ni *NodeInfo) (*AllNodeInfo, error) {
 	util.LogSwimMethod(false, "JOIN", ni.String())
 	if _, ok := s.members[ni.Address]; ok == false {
-		go func() {
+		s.disseminate(func(m *Member) {
+			conn, err := m.Connect()
+			defer conn.Close()
+			if err != nil {
+				return
+			}
+			c := NewMemberServiceClient(conn)
 			ani := s.createAllNodeInfo()
-			s.disseminate(func(m *Member) {
-				conn, err := m.Connect()
-				defer conn.Close()
-				if err != nil {
-					return
-				}
-				c := NewMemberServiceClient(conn)
-				aniResponse, err := c.NotifyNode(context.Background(), ani)
-				if err != nil {
-					return
-				}
-				s.addMembers(aniResponse.Nodes)
-			})
-		}()
+			aniResponse, err := c.NotifyNode(context.Background(), ani)
+			if err != nil {
+				return
+			}
+			s.addMembers(aniResponse.Nodes)
+		})
 
-		m, err := s.buildMember(ni)
-		if err != nil {
-			return nil, err
-		}
+		m := s.buildMember(ni)
 		s.addMember(m)
 	}
 
@@ -203,7 +190,6 @@ func (s *SwimManager) pingRandomMember() error {
 }
 
 func (s *SwimManager) execPing(m *Member) error {
-	fmt.Printf("Ping! %s\n", m)
 	conn, err := m.Connect()
 	defer conn.Close()
 	if err != nil {
@@ -213,44 +199,27 @@ func (s *SwimManager) execPing(m *Member) error {
 	c := NewSwimServiceClient(conn)
 	ni := s.buildNodeInfo(s.myInfo)
 
-	timeout := make(chan bool)
-	ackCh := make(chan *AckPing)
-	errCh := make(chan error)
-	go func() {
-		time.Sleep(PING_TIMEOUT * time.Second)
-		timeout <- true
-	}()
-	go func() {
-		util.LogSwimMethod(true, "Ping", ni.String())
-		ack, err := c.Ping(context.Background(), ni)
-		if err != nil {
-			errCh <- err
-		} else {
-			ackCh <- ack
-		}
-	}()
-
-	select {
-	case <-timeout:
-		go s.execRequirePing(m)
-		return nil
-	case err := <-errCh:
+	util.LogSwimMethod(true, "Ping", ni.String())
+	ctx, cancel := context.WithTimeout(context.Background(), s.pingInterval)
+	defer cancel()
+	ack, err := c.Ping(ctx, ni)
+	if err != nil {
 		go s.execRequirePing(m)
 		return err
-	case ack := <-ackCh:
-		if ack.IsJoined == false {
-			go func() {
-				err := s.joinMember(m)
-				if err != nil {
-					s.deleteMember(m)
-				}
-			}()
-		}
-		if m.Status == SUSPECT {
-			go s.execAlive(m)
-		}
-		return nil
 	}
+
+	if ack.IsJoined == false {
+		go func() {
+			err := s.joinMember(m)
+			if err != nil {
+				s.deleteMember(m)
+			}
+		}()
+	}
+	if m.Status == SUSPECT {
+		go s.execAlive(m)
+	}
+	return nil
 }
 
 func (s *SwimManager) buildNodeInfo(m *Member) *NodeInfo {
@@ -278,16 +247,16 @@ func (s *SwimManager) getRandomMember() *Member {
 func (s *SwimManager) Ping(ctx context.Context, ni *NodeInfo) (*AckPing, error) {
 	util.LogSwimMethod(false, "Ping", ni.String())
 	if _, ok := s.members[ni.Address]; ok {
-		fmt.Printf("Catch Ping %s: true\n", ni)
+		util.LogSwimMethod(false, "Catch Ping", "true")
 		return &AckPing{IsJoined: true}, nil
 	} else {
-		fmt.Printf("Catch Ping %s: false\n", ni)
+		util.LogSwimMethod(false, "Catch Ping", "false")
 		return &AckPing{IsJoined: false}, nil
 	}
 }
 
 func (s *SwimManager) execRequirePing(m *Member) {
-	fmt.Printf("Require Ping! %s\n", m)
+	util.Logf("Require Ping! %s\n", m)
 	if len(s.members) == 1 {
 		s.deleteMember(m)
 		return
@@ -331,11 +300,14 @@ func (s *SwimManager) execRequirePing(m *Member) {
 
 	if alive == false {
 		if m.Status == ALIVE {
+			m.Status = SUSPECT
 			go s.execSuspect(m)
 		} else {
+			s.deleteMember(m)
 			go s.execConfirm(m)
 		}
 	} else if m.Status == SUSPECT {
+		m.Status = ALIVE
 		go s.execAlive(m)
 	}
 }
@@ -348,36 +320,18 @@ func (s *SwimManager) execRequirePingToMember(m *Member, noResponseMember *Membe
 	}
 	c := NewSwimServiceClient(conn)
 
-	timeout := make(chan bool)
-	ackCh := make(chan *Result)
-	errCh := make(chan error)
-	go func() {
-		time.Sleep(PING_TIMEOUT * 2 * time.Second)
-		timeout <- true
-	}()
-	go func() {
-		util.LogSwimMethod(true, "RequirePing", noResponseMember.String())
-		ack, err := c.RequirePing(context.Background(), s.buildNodeInfo(noResponseMember))
-		if err != nil {
-			errCh <- err
-		} else {
-			ackCh <- ack
-		}
-	}()
-
-	select {
-	case <-timeout:
-		return false, errors.New("Timeout")
-	case err := <-errCh:
+	util.LogSwimMethod(true, "RequirePing", noResponseMember.String())
+	ctx, cancel := context.WithTimeout(context.Background(), PING_TIMEOUT*2*time.Second)
+	defer cancel()
+	ack, err := c.RequirePing(ctx, s.buildNodeInfo(noResponseMember))
+	if err != nil {
 		return false, err
-	case result := <-ackCh:
-		return result.Success, nil
+	} else {
+		return ack.Success, nil
 	}
 }
 
 func (s *SwimManager) execSuspect(m *Member) {
-	m.Status = SUSPECT
-
 	s.disseminate(func(target *Member) {
 		conn, err := target.Connect()
 		defer conn.Close()
@@ -391,10 +345,7 @@ func (s *SwimManager) execSuspect(m *Member) {
 
 func (s *SwimManager) RequirePing(ctx context.Context, ni *NodeInfo) (*Result, error) {
 	util.LogSwimMethod(false, "RequirePing", ni.String())
-	m, err := s.buildMember(ni)
-	if err != nil {
-		return &Result{Success: false}, nil
-	}
+	m := s.buildMember(ni)
 
 	conn, err := m.Connect()
 	defer conn.Close()
@@ -407,11 +358,12 @@ func (s *SwimManager) RequirePing(ctx context.Context, ni *NodeInfo) (*Result, e
 	ackCh := make(chan *AckPing)
 	errCh := make(chan error)
 	go func() {
-		time.Sleep(PING_TIMEOUT * time.Second)
+		time.Sleep(s.pingInterval)
 		timeout <- true
 	}()
 	go func() {
 		util.LogSwimMethod(true, "Ping", ni.String())
+		// Not use WithTimeout to distinguish timeout from others
 		ack, err := c.Ping(context.Background(), ni)
 		if err != nil {
 			errCh <- err
@@ -447,8 +399,6 @@ func (s *SwimManager) Alive(ctx context.Context, ni *NodeInfo) (*Empty, error) {
 }
 
 func (s *SwimManager) execAlive(m *Member) {
-	m.Status = ALIVE
-
 	s.disseminate(func(target *Member) {
 		conn, err := target.Connect()
 		defer conn.Close()
@@ -470,8 +420,6 @@ func (s *SwimManager) Confirm(ctx context.Context, ni *NodeInfo) (*Empty, error)
 }
 
 func (s *SwimManager) execConfirm(m *Member) {
-	s.deleteMember(m)
-
 	s.disseminate(func(target *Member) {
 		conn, err := target.Connect()
 		defer conn.Close()

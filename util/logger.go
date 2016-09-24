@@ -4,22 +4,38 @@ import (
 	"log"
 )
 
+var debug bool = false
+
+func SetDebug(b bool) {
+	debug = b
+}
+
 func LogAction(name string, id int32, message string) {
-	log.Printf("%s (Action) Id: %d, Message: %s", name, id, message)
+	printf("%s (Action) Id: %d, Message: %s", name, id, message)
 }
 
 func LogActionReceived(name string, fromName string, fromId int32, message string) {
-	log.Printf("%s (ReceiveAction) From: %s(%d), Message: %s", name, fromName, fromId, message)
+	printf("%s (ReceiveAction) From: %s(%d), Message: %s", name, fromName, fromId, message)
 }
 
 func LogReaction(name string, id int32, fromName string, fromId int32, message string) {
-	log.Printf("%s (Reaction) Id: %d, From: %s(%d), Message: %s", name, id, fromName, fromId, message)
+	printf("%s (Reaction) Id: %d, From: %s(%d), Message: %s", name, id, fromName, fromId, message)
 }
 
 func LogSwimMethod(isServer bool, phase string, message string) {
 	if isServer {
-		log.Printf("SWIM: Send: %s (%s)", phase, message)
+		printf("SWIM: Send: %s (%s)", phase, message)
 	} else {
-		log.Printf("SWIM: Catch: %s (%s)", phase, message)
+		printf("SWIM: Catch: %s (%s)", phase, message)
+	}
+}
+
+func Logf(format string, v ...interface{}) {
+	printf(format, v...)
+}
+
+func printf(format string, v ...interface{}) {
+	if debug {
+		log.Printf(format, v...)
 	}
 }

@@ -29,7 +29,7 @@ func (n *NodeDiscoverer) GetMember(name string, service string) (*members.Member
 	}
 
 	if service, ok := node.Services[service]; ok {
-		m, err := members.NewMember(
+		m := members.NewMember(
 			node.Node.Node,
 			node.Node.Address,
 			service.Port,
@@ -52,7 +52,7 @@ func (n *NodeDiscoverer) GetMembersByTag(service string) ([]*members.Member, err
 
 	result := []*members.Member{}
 	for _, member := range service_members {
-		m, err := members.NewMember(
+		m := members.NewMember(
 			member.Node,
 			member.Address,
 			member.ServicePort,
