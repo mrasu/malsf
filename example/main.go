@@ -6,7 +6,7 @@ import (
 	"github.com/mrasu/malsf/command"
 	"github.com/mrasu/malsf/structs"
 	"github.com/mrasu/malsf/util"
-	"os"
+"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -30,7 +30,8 @@ func main() {
 	}
 }
 
-func ReceiveToServer(action *structs.Action) (*structs.Message, error) {
+
+  func ReceiveToServer(action *structs.Action) (*structs.Message, error) {
 	fmt.Println("work work")
 	if action.Type == "Memory" {
 		fmt.Println("Memory is leeking!!")
